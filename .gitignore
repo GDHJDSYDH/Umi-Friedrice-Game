@@ -1,0 +1,7 @@
+node_modules
+dist
+assets_raw
+Temp
+*.local
+*.tsbuildinfo
+.DS_Store
