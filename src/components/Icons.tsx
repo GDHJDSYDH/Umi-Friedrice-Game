@@ -88,6 +88,42 @@ export const IngredientIcon: React.FC<{
           <circle cx="33" cy="20" r="1.3" fill="#fef3c7" />
         </svg>
       );
+    case 'uni':
+      return (
+        <svg width={size} height={size} viewBox="0 0 48 48">
+          {/* Spiny dark-purple sea urchin shell backdrop */}
+          <path
+            d="M24 6l3 7 8-4-2 8 8 2-6 6 5 7-8 1 1 8-9-4-9 4 1-8-8-1 5-7-6-6 8-2-2-8 8 4z"
+            fill="#4c1d95"
+            stroke="#2e1065"
+            strokeWidth="1.6"
+            strokeLinejoin="round"
+          />
+          {/* Rich golden-orange uni tongues */}
+          <ellipse cx="20" cy="25" rx="7.5" ry="4.8" transform="rotate(-22 20 25)" fill="#ff9800" stroke="#b45309" strokeWidth="1.8" />
+          <ellipse cx="28" cy="26" rx="7.5" ry="4.8" transform="rotate(20 28 26)" fill="#fbbf24" stroke="#b45309" strokeWidth="1.8" />
+          <circle cx="18" cy="24" r="1.1" fill="#fffbeb" />
+          <circle cx="22" cy="26" r="1" fill="#fffbeb" />
+          <circle cx="27" cy="25" r="1.1" fill="#fffbeb" />
+          <circle cx="30" cy="27" r="1" fill="#fffbeb" />
+        </svg>
+      );
+    case 'lobster':
+      return (
+        <svg width={size} height={size} viewBox="0 0 48 48">
+          {/* Plump red-and-cream lobster tail meat */}
+          <path
+            d="M11 26c0-9 7-15 16-14 7 1 12 6 12 13 0 6-5 11-12 11-4 0-7-2-8-4-3 1-8-1-8-6z"
+            fill="#fff5f0"
+            stroke="#b91c1c"
+            strokeWidth="2.2"
+          />
+          <path d="M12 23c4-7 13-11 23-7" stroke="#ef4444" strokeWidth="5.5" strokeLinecap="round" fill="none" />
+          <path d="M19 18l3 10M27 17l2 12M34 20l-1 10" stroke="#dc2626" strokeWidth="2.2" strokeLinecap="round" />
+          {/* Red lobster tail fan */}
+          <path d="M9 28l-4 7 7-2 2 6 4-7z" fill="#ef4444" stroke="#991b1b" strokeWidth="1.7" strokeLinejoin="round" />
+        </svg>
+      );
     case 'sausage':
       return (
         <svg width={size} height={size} viewBox="0 0 48 48">
@@ -137,6 +173,35 @@ export const IngredientIcon: React.FC<{
           <rect x="10" y="14" width="16" height="15" rx="4" fill="#7b241c" stroke="#420d09" strokeWidth="2.2" />
           <rect x="22" y="20" width="16" height="15" rx="4" fill="#922b21" stroke="#420d09" strokeWidth="2.2" />
           <path d="M13 18c3 2 6 0 9 3M25 24c4 1 6 4 10 2" stroke="#fadbd8" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+        </svg>
+      );
+    case 'lamb':
+      return (
+        <svg width={size} height={size} viewBox="0 0 48 48">
+          {/* Savory spiced lamb cubes with subtle fat marbling & cumin specks */}
+          <rect x="8" y="16" width="15" height="14" rx="4" fill="#a94438" stroke="#5c1d16" strokeWidth="2.2" />
+          <rect x="23" y="13" width="16" height="14" rx="4" fill="#8e3b2e" stroke="#5c1d16" strokeWidth="2.2" />
+          <rect x="16" y="25" width="16" height="14" rx="4" fill="#b84c3e" stroke="#5c1d16" strokeWidth="2.2" />
+          <path d="M11 20h7M26 17h8M19 30h8" stroke="#fde68a" strokeWidth="2" strokeLinecap="round" />
+          <circle cx="15" cy="25" r="1.2" fill="#451a03" />
+          <circle cx="31" cy="21" r="1.2" fill="#451a03" />
+          <circle cx="25" cy="34" r="1.2" fill="#451a03" />
+        </svg>
+      );
+    case 'pigeon':
+      return (
+        <svg width={size} height={size} viewBox="0 0 48 48">
+          {/* Golden-glazed tender squab / pigeon meat drumette & dice */}
+          <path
+            d="M11 27c0-8 7-14 15-14 6 0 11 4 11 10 0 5-3 9-8 11l-7 2c-6 1-11-3-11-9z"
+            fill="#c6763b"
+            stroke="#6b3410"
+            strokeWidth="2.2"
+          />
+          <path d="M35 28l6 5" stroke="#fef3c7" strokeWidth="4.5" strokeLinecap="round" />
+          <path d="M35 28l6 5" stroke="#92400e" strokeWidth="1.5" strokeLinecap="round" />
+          <path d="M16 20c4-3 10-3 14 0" stroke="#fde68a" strokeWidth="2.2" strokeLinecap="round" fill="none" />
+          <circle cx="21" cy="27" r="2.2" fill="#eab308" opacity="0.6" />
         </svg>
       );
     case 'mushroom':

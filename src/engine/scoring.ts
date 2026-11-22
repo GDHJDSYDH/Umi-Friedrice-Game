@@ -355,6 +355,17 @@ export function evaluateCooking(snapshot: CookingSnapshot): ScoreReport {
     }
   }
 
+  // Lamb + Spice aroma / gamey check
+  if (inPanList.some((st) => st.id === 'lamb')) {
+    if (snapshot.seasoningCounts.spice >= 1) {
+      seasoningScore += 7;
+      seasonHighlights.push('秘制香料完美激发羊肉焦香，毫无膻味！');
+    } else {
+      seasoningScore -= 9;
+      seasonPenalties.push('加入了羊肉却未撒秘制香料去膻，残留少许羊膻味');
+    }
+  }
+
   // Honey special chemistry
   if (snapshot.honeyGlazeTriggered) {
     seasoningScore += 10;
@@ -396,6 +407,12 @@ export function evaluateCooking(snapshot: CookingSnapshot): ScoreReport {
     harmonyScore += 10;
     synergies.push('鸟白岛海鲜盛宴');
     harmonyHighlights.push('触发羁绊【鸟白岛海鲜盛宴】！海味鲜甜层层递进');
+  }
+  if ((tagCounts['premium'] ?? 0) >= 2) {
+    harmonyScore += 10;
+    synergies.push('奢华海陆盛宴');
+    harmonyHighlights.push('触发羁绊【奢华海陆盛宴】！顶级珍馐汇聚一盘，尊贵感拉满');
+    badges.push('海岛奢华主厨');
   }
   if (
     inPanList.some((s) => s.id === 'mushroom') &&

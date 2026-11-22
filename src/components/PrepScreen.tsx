@@ -66,6 +66,7 @@ export const PrepScreen: React.FC<PrepScreenProps> = ({
     }
     const list: string[] = [];
     if ((tags['island'] ?? 0) >= 2) list.push('🌊 鸟白岛海鲜盛宴');
+    if ((tags['premium'] ?? 0) >= 2) list.push('👑 奢华海陆盛宴');
     if (selectedIngredients.includes('mushroom') && selectedIngredients.includes('broccoli')) {
       list.push('🥦 田园鲜蔬二重奏');
     }
@@ -77,6 +78,7 @@ export const PrepScreen: React.FC<PrepScreenProps> = ({
     if (selectedWok === 'castiron' && ((tags['meat'] ?? 0) >= 1 || (tags['seafood'] ?? 0) >= 1)) {
       list.push('🛡️ 厚底锁鲜');
     }
+    if (selectedIngredients.includes('lamb')) list.push('🌶️ 羊肉记得配秘制香料去膻增香');
     if ((tags['honey-friendly'] ?? 0) >= 1) list.push('🍯 支持隐藏配方【蜜汁焦糖】');
     return list;
   }, [selectedWok, selectedIngredients]);
@@ -261,9 +263,9 @@ export const PrepScreen: React.FC<PrepScreenProps> = ({
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {(
                 [
-                  ['all', '全部 (20)'],
-                  ['seafood', '🦐 海鲜 (6)'],
-                  ['meat', '🥩 肉类 (6)'],
+                  ['all', '全部 (24)'],
+                  ['seafood', '🦐 海鲜 (8)'],
+                  ['meat', '🥩 肉类 (8)'],
                   ['vegetable', '🥦 蔬菜 (8)'],
                 ] as const
               ).map(([key, label]) => (

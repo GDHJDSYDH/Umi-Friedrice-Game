@@ -370,6 +370,14 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
       } else if (s.seasoningCounts.oil === 0 && !s.warnedNoOil) {
         s.warnedNoOil = true;
         pushBubble('呀，好像还没放食用油呢！干锅炒容易粘底哦！', 'warn');
+      } else if (id === 'uni') {
+        pushBubble('哇啊！金黄绵密的鸟白岛海胆！！轻轻翻拌一下就可以出锅咯♪', 'excited');
+      } else if (id === 'lobster') {
+        pushBubble('居然是大龙虾肉！！今天的炒饭也太豪华了吧，千万别炒老哦！', 'excited');
+      } else if (id === 'lamb') {
+        pushBubble('鲜嫩羊肉下锅啦！大火快炒再撒点秘制香料，肯定香喷喷的！', 'happy');
+      } else if (id === 'pigeon') {
+        pushBubble('好讲究的乳鸽肉丁呀！中火稳住火候，配一点酱油或蜂蜜超绝！', 'happy');
       } else if (id === 'mushroom' || id === 'broccoli') {
         pushBubble(`香喷喷的${cfg.name}下锅啦，记得炒透才最美味！`, 'happy');
       }

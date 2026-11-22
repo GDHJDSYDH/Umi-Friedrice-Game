@@ -48,7 +48,7 @@ export interface IngredientConfig {
   category: IngredientCategory;
   color: string;             // primary grain/cube visual color in pan
   accentColor: string;       // secondary highlight color
-  iconShape: 'rice' | 'egg' | 'shrimp' | 'squid' | 'crab' | 'scallop' | 'clam' | 'eel' | 'sausage' | 'bacon' | 'charsiu' | 'chicken' | 'ham' | 'beef' | 'scallion' | 'corn' | 'carrot' | 'pea' | 'onion' | 'lettuce' | 'mushroom' | 'broccoli';
+  iconShape: 'rice' | 'egg' | 'shrimp' | 'squid' | 'crab' | 'scallop' | 'clam' | 'eel' | 'uni' | 'lobster' | 'sausage' | 'bacon' | 'charsiu' | 'chicken' | 'ham' | 'beef' | 'lamb' | 'pigeon' | 'scallion' | 'corn' | 'carrot' | 'pea' | 'onion' | 'lettuce' | 'mushroom' | 'broccoli';
   buffs: string[];
   debuffs: string[];
   // Cooking simulation parameters
