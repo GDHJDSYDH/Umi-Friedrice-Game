@@ -23,22 +23,12 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   const bestScore = records.length > 0 ? Math.max(...records.map((r) => r.score)) : null;
 
   return (
-    <div
-      style={{
-        position: 'relative',
-        width: '100vw',
-        height: '100vh',
-        overflow: 'hidden',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'flex-start',
-        background: '#f7f3e3',
-      }}
-    >
+    <div className="title-root">
       {/* Full-bleed denoised cover illustration */}
       <img
         src={`${base}assets/images/cover.png`}
         alt="羽未的炒饭游戏封面"
+        className="title-cover-img"
         style={{
           position: 'absolute',
           inset: 0,
@@ -49,8 +39,9 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
         }}
       />
 
-      {/* Soft sunlit left vignette for crystal-clear title contrast */}
+      {/* Soft sunlit vignette for crystal-clear title contrast */}
       <div
+        className="title-vignette"
         style={{
           position: 'absolute',
           inset: 0,
@@ -63,8 +54,8 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
       <div
         style={{
           position: 'absolute',
-          top: 20,
-          right: 24,
+          top: 'max(14px, env(safe-area-inset-top))',
+          right: 16,
           zIndex: 10,
           display: 'flex',
           gap: 10,
@@ -77,7 +68,8 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             display: 'flex',
             alignItems: 'center',
             gap: 6,
-            padding: '9px 15px',
+            padding: '9px 14px',
+            minHeight: 40,
             fontSize: 13.5,
           }}
           title="切换背景音乐与音效"
@@ -87,20 +79,8 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
         </button>
       </div>
 
-      {/* Main Left Hero Column */}
-      <div
-        className="anim-pop"
-        style={{
-          position: 'relative',
-          zIndex: 5,
-          maxWidth: 560,
-          marginLeft: 'clamp(24px, 6vw, 92px)',
-          padding: '28px 32px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 18,
-        }}
-      >
+      {/* Main Hero Column */}
+      <div className="title-hero anim-pop">
         {/* Summer Pockets Fan badge */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <span

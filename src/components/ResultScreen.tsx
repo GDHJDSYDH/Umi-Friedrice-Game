@@ -86,8 +86,8 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
   return (
     <div
       style={{
-        minHeight: '100vh',
-        padding: '22px 24px 36px',
+        minHeight: '100dvh',
+        padding: '16px clamp(12px, 3vw, 24px) calc(28px + env(safe-area-inset-bottom))',
         background:
           'radial-gradient(circle at 20% 15%, rgba(254, 240, 138, 0.52), transparent 44%), radial-gradient(circle at 85% 20%, rgba(186, 230, 253, 0.58), transparent 44%), linear-gradient(155deg, #fffdf5 0%, #eef9f1 52%, #e0f2fe 100%)',
       }}
@@ -97,8 +97,8 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
           maxWidth: 1180,
           margin: '0 auto',
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
-          gap: 20,
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))',
+          gap: 16,
           alignItems: 'start',
         }}
       >

@@ -84,8 +84,8 @@ export const PrepScreen: React.FC<PrepScreenProps> = ({
   return (
     <div
       style={{
-        minHeight: '100vh',
-        padding: '18px 24px 110px',
+        minHeight: '100dvh',
+        padding: '14px clamp(12px, 3vw, 24px) 150px',
         background:
           'radial-gradient(circle at 12% 10%, rgba(186, 230, 253, 0.55), transparent 42%), radial-gradient(circle at 90% 15%, rgba(254, 215, 170, 0.55), transparent 45%), linear-gradient(160deg, #f0f9ff 0%, #f5fae8 50%, #fff7e6 100%)',
       }}
@@ -105,7 +105,7 @@ export const PrepScreen: React.FC<PrepScreenProps> = ({
             <button
               onClick={onBack}
               className="btn-ghost"
-              style={{ padding: '8px 15px', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 14 }}
+              style={{ padding: '8px 14px', display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 13.5, whiteSpace: 'nowrap', flexShrink: 0 }}
             >
               <ArrowLeft size={16} /> 返回封面
             </button>
@@ -141,7 +141,7 @@ export const PrepScreen: React.FC<PrepScreenProps> = ({
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(255px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 245px), 1fr))',
               gap: 12,
             }}
           >
@@ -329,8 +329,8 @@ export const PrepScreen: React.FC<PrepScreenProps> = ({
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
-              gap: 11,
+              gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 220px), 1fr))',
+              gap: 10,
             }}
           >
             {filteredIngredients.map((ing) => {
@@ -444,7 +444,7 @@ export const PrepScreen: React.FC<PrepScreenProps> = ({
           background: 'rgba(255, 251, 240, 0.96)',
           borderTop: '2px solid rgba(234, 88, 12, 0.35)',
           backdropFilter: 'blur(10px)',
-          padding: '12px 24px',
+          padding: '10px clamp(12px, 3vw, 24px) calc(10px + env(safe-area-inset-bottom))',
           boxShadow: '0 -8px 24px rgba(44, 36, 30, 0.12)',
         }}
       >

@@ -118,29 +118,47 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
     [wokId, selectedIngredientIds]
   );
 
-  // Compute exact object-fit:cover rectangle for kitchen_stove_bg.png (1440x960)
-  // so the flame, wok bowl, food canvas, and spatula stay 100% locked to the stove burner at every screen aspect ratio!
-  const [bgRect, setBgRect] = useState<{ w: number; h: number; left: number; top: number }>(() => {
-    const vw = typeof window !== 'undefined' ? window.innerWidth : 1280;
-    const vh = typeof window !== 'undefined' ? window.innerHeight : 720;
+  // Viewport & responsive mode tracking
+  const [viewport, setViewport] = useState<{ vw: number; vh: number }>(() => ({
+    vw: typeof window !== 'undefined' ? window.innerWidth : 1280,
+    vh: typeof window !== 'undefined' ? window.innerHeight : 720,
+  }));
+  const [mobileDockTab, setMobileDockTab] = useState<'ingredients' | 'seasonings'>('ingredients');
+
+  useEffect(() => {
+    const updateVp = () => {
+      setViewport({ vw: window.innerWidth, vh: window.innerHeight });
+    };
+    window.addEventListener('resize', updateVp);
+    return () => window.removeEventListener('resize', updateVp);
+  }, []);
+
+  const isMobilePortrait = viewport.vw < 768;
+  const isCompactLandscape = !isMobilePortrait && viewport.vh < 560;
+
+  // Compute exact background stage rectangle locked to kitchen_stove_bg.png (1440x960):
+  // - On desktop/landscape: full-bleed object-fit: cover centered on screen.
+  // - On mobile portrait: shifts stove burner (50%, 66.2%) cleanly into the open middle visual stage
+  //   between the slim top HUD and bottom thumb dock, scaled so the full wok + dipping spatula fit comfortably!
+  const bgRect = useMemo(() => {
+    const { vw, vh } = viewport;
+    if (isMobilePortrait) {
+      // Target wok width ~78% of screen width -> wok is 49% of bgW -> bgW ~= vw * 1.56
+      const w = Math.max(vw * 1.52, vh * 0.92);
+      const h = (w * BG_NATURAL_H) / BG_NATURAL_W;
+      const desiredBurnerY = vh * 0.375;
+      return {
+        w,
+        h,
+        left: (vw - w) / 2,
+        top: desiredBurnerY - h * 0.662,
+      };
+    }
     const scale = Math.max(vw / BG_NATURAL_W, vh / BG_NATURAL_H);
     const w = BG_NATURAL_W * scale;
     const h = BG_NATURAL_H * scale;
     return { w, h, left: (vw - w) / 2, top: (vh - h) / 2 };
-  });
-
-  useEffect(() => {
-    const updateRect = () => {
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      const scale = Math.max(vw / BG_NATURAL_W, vh / BG_NATURAL_H);
-      const w = BG_NATURAL_W * scale;
-      const h = BG_NATURAL_H * scale;
-      setBgRect({ w, h, left: (vw - w) / 2, top: (vh - h) / 2 });
-    };
-    window.addEventListener('resize', updateRect);
-    return () => window.removeEventListener('resize', updateRect);
-  }, []);
+  }, [isMobilePortrait, viewport]);
 
   // React UI state (synced smoothly from simulation ref)
   const [helperMode, setHelperMode] = useState(true);
@@ -1019,7 +1037,7 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
         position: 'fixed',
         inset: 0,
         width: '100vw',
-        height: '100vh',
+        height: '100dvh',
         overflow: 'hidden',
         background: '#1e2420',
         display: 'flex',
@@ -1028,7 +1046,7 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
     >
       {/* BACKGROUND-LOCKED KITCHEN STOVE STAGE
           Locked 1:1 to kitchen_stove_bg.png (1440x960) so the flame, enlarged wok bowl,
-          food canvas, and wooden spatula always sit squarely on the real gas burner grate! */}
+          food canvas, and enlarged wooden spatula dipping inside the wok stay aligned everywhere! */}
       <div
         style={{
           position: 'absolute',
@@ -1121,277 +1139,843 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
           </div>
         </div>
 
-        {/* Interactive Wooden Spatula docked naturally beside the upper-right wok rim */}
-        <button
-          key={`sp-${tossAnimKey}`}
-          className={tossAnimKey > 0 ? 'anim-spatula-sweep' : undefined}
-          onClick={() => (qte.active ? strikeQte() : startTossQte())}
+        {/* Enlarged Wooden Spatula — blade head (28.2%, 24.9%) dips directly INSIDE the wok bowl
+            at (56.5%, 63.0%), angled naturally over the right rim for authentic stir-fry feel! */}
+        <div
           style={{
             position: 'absolute',
-            left: '73%',
-            top: '43%',
-            width: '13.5%',
+            left: '56.5%',
+            top: '63.0%',
+            width: '27.5%',
             aspectRatio: '1 / 1',
-            transform: 'translate(-50%, -50%)',
-            background: 'transparent',
-            padding: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            zIndex: 22,
-            pointerEvents: 'auto',
+            transform: 'translate(-28.2%, -24.9%) rotate(-54deg)',
+            transformOrigin: '28.2% 24.9%',
+            zIndex: 12,
+            pointerEvents: 'none',
           }}
-          title="使用木铲翻炒（快捷键 Space）"
         >
-          <img
-            src={`${base}assets/images/spatula.png`}
-            alt="木铲翻炒"
+          <button
+            key={`sp-${tossAnimKey}`}
+            className={tossAnimKey > 0 ? 'anim-spatula-stir' : undefined}
+            onClick={() => (qte.active ? strikeQte() : startTossQte())}
             style={{
-              width: '92%',
-              height: '92%',
-              objectFit: 'contain',
-              filter: 'drop-shadow(0 8px 14px rgba(0,0,0,0.36))',
+              width: '100%',
+              height: '100%',
+              background: 'transparent',
+              padding: 0,
+              pointerEvents: 'auto',
+              display: 'block',
             }}
-          />
-          <span
+            title="使用木铲翻炒（快捷键 Space）"
+          >
+            <img
+              src={`${base}assets/images/spatula.png`}
+              alt="木铲翻炒"
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain',
+                filter: 'drop-shadow(0 10px 14px rgba(0,0,0,0.34))',
+              }}
+            />
+          </button>
+        </div>
+
+        {/* Upright Floating Stir-Fry Pill anchored cleanly right beside the spatula handle */}
+        {!isMobilePortrait && (
+          <button
+            onClick={() => (qte.active ? strikeQte() : startTossQte())}
             style={{
-              marginTop: -12,
-              padding: '4px 11px',
+              position: 'absolute',
+              left: '72.5%',
+              top: '56.5%',
+              transform: 'translate(-50%, -50%)',
+              padding: '6px 14px',
               borderRadius: 999,
-              background: 'linear-gradient(135deg, #f97316, #ea580c)',
+              background: 'linear-gradient(135deg, #ff9f38, #ea580c)',
               color: '#fff',
-              fontSize: 12,
+              fontSize: 13,
               fontWeight: 900,
-              boxShadow: '0 4px 12px rgba(234,88,12,0.45)',
-              border: '1.5px solid #fff',
+              boxShadow: '0 6px 16px rgba(234,88,12,0.48)',
+              border: '2px solid #fff',
               whiteSpace: 'nowrap',
+              zIndex: 14,
+              pointerEvents: 'auto',
             }}
           >
             🥄 翻炒 (Space)
-          </span>
-        </button>
+          </button>
+        )}
       </div>
 
-      {/* TOP HUD BAR (Guaranteed single compact row, zero collision) */}
+      {/* TOP HUD BAR (Adapts cleanly between Desktop 1-row and Mobile Portrait 2-row) */}
       <header
         style={{
           position: 'relative',
           zIndex: 25,
-          padding: '8px 12px 4px',
+          padding: isMobilePortrait
+            ? 'max(6px, env(safe-area-inset-top)) 8px 4px'
+            : isCompactLandscape
+              ? '4px 10px 2px'
+              : '8px 12px 4px',
           display: 'flex',
-          alignItems: 'center',
+          flexDirection: isMobilePortrait ? 'column' : 'row',
+          alignItems: isMobilePortrait ? 'stretch' : 'center',
           justifyContent: 'space-between',
-          gap: 8,
+          gap: isMobilePortrait ? 5 : 8,
           flexShrink: 0,
         }}
       >
-        {/* Left Nav */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-          <button
-            onClick={() => {
-              audioEngine.stopFlameAmbience();
-              onBackToPrep();
-            }}
-            className="btn-ghost"
-            style={{ padding: '6px 10px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}
-          >
-            <ArrowLeft size={14} /> 换配置
-          </button>
-          <span
-            className="summer-card"
-            style={{
-              padding: '5px 10px',
-              borderRadius: 999,
-              fontSize: 12,
-              fontWeight: 800,
-              color: '#9a3412',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            🍳 {wok.name}
-          </span>
-        </div>
-
-        {/* Center Telemetry Gauges */}
-        <div
-          className="summer-card"
-          style={{
-            padding: '5px 12px',
-            borderRadius: 14,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-            minWidth: 0,
-            flexShrink: 1,
-          }}
-        >
-          {/* Timer */}
-          <div style={{ whiteSpace: 'nowrap' }}>
-            <div style={{ fontSize: 10, fontWeight: 800, color: '#6b5b4e' }}>
-              计时 {helperMode && `(${targetDur.min}~${targetDur.max}s)`}
-            </div>
-            <div
-              style={{
-                fontSize: 15,
-                fontWeight: 900,
-                lineHeight: 1.1,
-                color:
-                  elapsedSec >= targetDur.min && elapsedSec <= targetDur.max
-                    ? '#16a34a'
-                    : elapsedSec > targetDur.max
-                      ? '#dc2626'
-                      : '#2c241e',
-              }}
-            >
-              {elapsedSec.toFixed(1)}s
-            </div>
-          </div>
-
-          {/* Temperature Bar */}
-          <div style={{ width: 'clamp(115px, 14vw, 175px)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10.5, fontWeight: 800, whiteSpace: 'nowrap' }}>
-              <span style={{ color: inIdealNow ? '#15803d' : '#786655' }}>
-                {Math.round(panTemp)}°C {inIdealNow && '✓'}
-              </span>
-              {helperMode && (
-                <span style={{ color: '#0284c7' }}>
-                  {idealTempRange.min}~{idealTempRange.max}°
+        {isMobilePortrait ? (
+          <>
+            {/* Mobile Row 1: Nav + Wok + Controls */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
+                <button
+                  onClick={() => {
+                    audioEngine.stopFlameAmbience();
+                    onBackToPrep();
+                  }}
+                  className="btn-ghost"
+                  style={{ padding: '5px 9px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 3, whiteSpace: 'nowrap' }}
+                >
+                  <ArrowLeft size={13} /> 返回
+                </button>
+                <span
+                  className="summer-card"
+                  style={{
+                    padding: '4px 9px',
+                    borderRadius: 999,
+                    fontSize: 11.5,
+                    fontWeight: 800,
+                    color: '#9a3412',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  🍳 {wok.name}
                 </span>
-              )}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+                <button
+                  onClick={() => setHelperMode((v) => !v)}
+                  className="btn-ghost"
+                  style={{ padding: '5px 9px', fontSize: 11.5, display: 'inline-flex', alignItems: 'center', gap: 3 }}
+                >
+                  {helperMode ? <Eye size={13} /> : <EyeOff size={13} />}
+                  {helperMode ? '辅助' : '大师'}
+                </button>
+                <button
+                  onClick={onToggleMute}
+                  className="btn-ghost"
+                  style={{ padding: '5px 8px', display: 'inline-flex', alignItems: 'center' }}
+                >
+                  {muted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+                </button>
+              </div>
             </div>
+
+            {/* Mobile Row 2: Compact Telemetry Strip */}
             <div
+              className="summer-card"
               style={{
-                position: 'relative',
-                height: 8,
-                borderRadius: 999,
-                background: '#e2e8f0',
-                marginTop: 3,
-                overflow: 'hidden',
+                padding: '5px 10px',
+                borderRadius: 12,
+                display: 'grid',
+                gridTemplateColumns: 'auto 1.5fr 1fr 1fr',
+                alignItems: 'center',
+                gap: 8,
               }}
             >
-              {helperMode && (
+              <div style={{ whiteSpace: 'nowrap' }}>
+                <div style={{ fontSize: 9.5, fontWeight: 800, color: '#6b5b4e' }}>
+                  {helperMode ? `${targetDur.min}~${targetDur.max}s` : '计时'}
+                </div>
                 <div
                   style={{
-                    position: 'absolute',
-                    left: `${idealMinPct}%`,
-                    width: `${Math.max(6, idealMaxPct - idealMinPct)}%`,
-                    top: 0,
-                    bottom: 0,
-                    background: 'rgba(34, 197, 94, 0.42)',
-                    borderLeft: '2px solid #16a34a',
-                    borderRight: '2px solid #16a34a',
+                    fontSize: 13.5,
+                    fontWeight: 900,
+                    lineHeight: 1.1,
+                    color:
+                      elapsedSec >= targetDur.min && elapsedSec <= targetDur.max
+                        ? '#16a34a'
+                        : elapsedSec > targetDur.max
+                          ? '#dc2626'
+                          : '#2c241e',
                   }}
-                />
-              )}
-              <div
+                >
+                  {elapsedSec.toFixed(0)}s
+                </div>
+              </div>
+
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, fontWeight: 800 }}>
+                  <span style={{ color: inIdealNow ? '#15803d' : '#786655' }}>{Math.round(panTemp)}°C</span>
+                  {helperMode && <span style={{ color: '#0284c7' }}>{idealTempRange.min}~{idealTempRange.max}°</span>}
+                </div>
+                <div style={{ position: 'relative', height: 7, borderRadius: 99, background: '#e2e8f0', marginTop: 2, overflow: 'hidden' }}>
+                  {helperMode && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        left: `${idealMinPct}%`,
+                        width: `${Math.max(6, idealMaxPct - idealMinPct)}%`,
+                        top: 0,
+                        bottom: 0,
+                        background: 'rgba(34, 197, 94, 0.45)',
+                      }}
+                    />
+                  )}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: `${tempPct}%`,
+                      background: panTemp > idealTempRange.max + 10 ? '#ef4444' : '#f59e0b',
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, fontWeight: 800 }}>
+                  <span style={{ color: '#d97706' }}>锅气</span>
+                  <span>{Math.round(wokHei)}%</span>
+                </div>
+                <div style={{ height: 7, borderRadius: 99, background: '#fef3c7', marginTop: 2, overflow: 'hidden' }}>
+                  <div style={{ width: `${wokHei}%`, height: '100%', background: '#f59e0b' }} />
+                </div>
+              </div>
+
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, fontWeight: 800 }}>
+                  <span style={{ color: burnLevel > 25 ? '#dc2626' : '#64748b' }}>焦糊</span>
+                  <span>{Math.round(burnLevel)}%</span>
+                </div>
+                <div style={{ height: 7, borderRadius: 99, background: '#e2e8f0', marginTop: 2, overflow: 'hidden' }}>
+                  <div style={{ width: `${burnLevel}%`, height: '100%', background: '#b91c1c' }} />
+                </div>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Desktop / Landscape Left Nav */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+              <button
+                onClick={() => {
+                  audioEngine.stopFlameAmbience();
+                  onBackToPrep();
+                }}
+                className="btn-ghost"
+                style={{ padding: '6px 10px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}
+              >
+                <ArrowLeft size={14} /> 换配置
+              </button>
+              <span
+                className="summer-card"
                 style={{
-                  position: 'absolute',
-                  left: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: `${tempPct}%`,
-                  background:
-                    panTemp > idealTempRange.max + 10
-                      ? 'linear-gradient(90deg, #f97316, #dc2626)'
-                      : 'linear-gradient(90deg, #38bdf8, #f59e0b)',
+                  padding: '5px 10px',
                   borderRadius: 999,
-                  transition: 'width 0.08s linear',
+                  fontSize: 12,
+                  fontWeight: 800,
+                  color: '#9a3412',
+                  whiteSpace: 'nowrap',
                 }}
-              />
+              >
+                🍳 {wok.name}
+              </span>
             </div>
-          </div>
 
-          {/* Wok Hei */}
-          <div style={{ width: 'clamp(68px, 8vw, 98px)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10.5, fontWeight: 800, whiteSpace: 'nowrap' }}>
-              <span style={{ color: '#d97706' }}>🔥锅气</span>
-              <span>{Math.round(wokHei)}%</span>
-            </div>
-            <div style={{ height: 8, borderRadius: 999, background: '#fef3c7', marginTop: 3, overflow: 'hidden' }}>
-              <div
-                style={{
-                  width: `${wokHei}%`,
-                  height: '100%',
-                  background: 'linear-gradient(90deg, #fbbf24, #f97316)',
-                  transition: 'width 0.12s',
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Scorch / Burn */}
-          <div style={{ width: 'clamp(64px, 7.5vw, 92px)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10.5, fontWeight: 800, whiteSpace: 'nowrap' }}>
-              <span style={{ color: burnLevel > 25 ? '#dc2626' : '#64748b' }}>💨焦糊</span>
-              <span style={{ color: burnLevel > 25 ? '#dc2626' : '#475569' }}>{Math.round(burnLevel)}%</span>
-            </div>
-            <div style={{ height: 8, borderRadius: 999, background: '#e2e8f0', marginTop: 3, overflow: 'hidden' }}>
-              <div
-                style={{
-                  width: `${burnLevel}%`,
-                  height: '100%',
-                  background: 'linear-gradient(90deg, #78716c, #991b1b)',
-                  transition: 'width 0.12s',
-                }}
-              />
-            </div>
-          </div>
-
-          {combo >= 2 && (
+            {/* Center Telemetry Gauges */}
             <div
+              className="summer-card"
               style={{
-                padding: '2px 8px',
-                borderRadius: 999,
-                background: 'linear-gradient(135deg, #f59e0b, #ea580c)',
-                color: '#fff',
-                fontWeight: 900,
-                fontSize: 11.5,
-                whiteSpace: 'nowrap',
+                padding: '5px 12px',
+                borderRadius: 14,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                minWidth: 0,
+                flexShrink: 1,
               }}
             >
-              {combo}×
-            </div>
-          )}
-        </div>
+              <div style={{ whiteSpace: 'nowrap' }}>
+                <div style={{ fontSize: 10, fontWeight: 800, color: '#6b5b4e' }}>
+                  计时 {helperMode && `(${targetDur.min}~${targetDur.max}s)`}
+                </div>
+                <div
+                  style={{
+                    fontSize: 15,
+                    fontWeight: 900,
+                    lineHeight: 1.1,
+                    color:
+                      elapsedSec >= targetDur.min && elapsedSec <= targetDur.max
+                        ? '#16a34a'
+                        : elapsedSec > targetDur.max
+                          ? '#dc2626'
+                          : '#2c241e',
+                  }}
+                >
+                  {elapsedSec.toFixed(1)}s
+                </div>
+              </div>
 
-        {/* Right Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-          <button
-            onClick={() => setHelperMode((v) => !v)}
-            className="btn-ghost"
-            style={{ padding: '6px 10px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}
-            title="切换新手辅助提示 / 无提示大师模式"
-          >
-            {helperMode ? <Eye size={14} /> : <EyeOff size={14} />}
-            {helperMode ? '辅助' : '大师'}
-          </button>
-          <button
-            onClick={onToggleMute}
-            className="btn-ghost"
-            style={{ padding: '6px 9px', display: 'inline-flex', alignItems: 'center' }}
-          >
-            {muted ? <VolumeX size={15} /> : <Volume2 size={15} />}
-          </button>
-        </div>
+              <div style={{ width: 'clamp(115px, 14vw, 175px)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10.5, fontWeight: 800, whiteSpace: 'nowrap' }}>
+                  <span style={{ color: inIdealNow ? '#15803d' : '#786655' }}>
+                    {Math.round(panTemp)}°C {inIdealNow && '✓'}
+                  </span>
+                  {helperMode && (
+                    <span style={{ color: '#0284c7' }}>
+                      {idealTempRange.min}~{idealTempRange.max}°
+                    </span>
+                  )}
+                </div>
+                <div
+                  style={{
+                    position: 'relative',
+                    height: 8,
+                    borderRadius: 999,
+                    background: '#e2e8f0',
+                    marginTop: 3,
+                    overflow: 'hidden',
+                  }}
+                >
+                  {helperMode && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        left: `${idealMinPct}%`,
+                        width: `${Math.max(6, idealMaxPct - idealMinPct)}%`,
+                        top: 0,
+                        bottom: 0,
+                        background: 'rgba(34, 197, 94, 0.42)',
+                        borderLeft: '2px solid #16a34a',
+                        borderRight: '2px solid #16a34a',
+                      }}
+                    />
+                  )}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: `${tempPct}%`,
+                      background:
+                        panTemp > idealTempRange.max + 10
+                          ? 'linear-gradient(90deg, #f97316, #dc2626)'
+                          : 'linear-gradient(90deg, #38bdf8, #f59e0b)',
+                      borderRadius: 999,
+                      transition: 'width 0.08s linear',
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ width: 'clamp(68px, 8vw, 98px)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10.5, fontWeight: 800, whiteSpace: 'nowrap' }}>
+                  <span style={{ color: '#d97706' }}>🔥锅气</span>
+                  <span>{Math.round(wokHei)}%</span>
+                </div>
+                <div style={{ height: 8, borderRadius: 999, background: '#fef3c7', marginTop: 3, overflow: 'hidden' }}>
+                  <div
+                    style={{
+                      width: `${wokHei}%`,
+                      height: '100%',
+                      background: 'linear-gradient(90deg, #fbbf24, #f97316)',
+                      transition: 'width 0.12s',
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ width: 'clamp(64px, 7.5vw, 92px)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10.5, fontWeight: 800, whiteSpace: 'nowrap' }}>
+                  <span style={{ color: burnLevel > 25 ? '#dc2626' : '#64748b' }}>💨焦糊</span>
+                  <span style={{ color: burnLevel > 25 ? '#dc2626' : '#475569' }}>{Math.round(burnLevel)}%</span>
+                </div>
+                <div style={{ height: 8, borderRadius: 999, background: '#e2e8f0', marginTop: 3, overflow: 'hidden' }}>
+                  <div
+                    style={{
+                      width: `${burnLevel}%`,
+                      height: '100%',
+                      background: 'linear-gradient(90deg, #78716c, #991b1b)',
+                      transition: 'width 0.12s',
+                    }}
+                  />
+                </div>
+              </div>
+
+              {combo >= 2 && (
+                <div
+                  style={{
+                    padding: '2px 8px',
+                    borderRadius: 999,
+                    background: 'linear-gradient(135deg, #f59e0b, #ea580c)',
+                    color: '#fff',
+                    fontWeight: 900,
+                    fontSize: 11.5,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {combo}×
+                </div>
+              )}
+            </div>
+
+            {/* Right Controls */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+              <button
+                onClick={() => setHelperMode((v) => !v)}
+                className="btn-ghost"
+                style={{ padding: '6px 10px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}
+                title="切换新手辅助提示 / 无提示大师模式"
+              >
+                {helperMode ? <Eye size={14} /> : <EyeOff size={14} />}
+                {helperMode ? '辅助' : '大师'}
+              </button>
+              <button
+                onClick={onToggleMute}
+                className="btn-ghost"
+                style={{ padding: '6px 9px', display: 'inline-flex', alignItems: 'center' }}
+              >
+                {muted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+              </button>
+            </div>
+          </>
+        )}
       </header>
 
-      {/* MAIN 3-COLUMN UI OVERLAY (pointerEvents: none on container so wok & spatula behind center column remain directly clickable!) */}
+      {/* BODY: MOBILE PORTRAIT VERTICAL STUDIO vs DESKTOP/LANDSCAPE 3-COLUMN STAGE */}
+      {isMobilePortrait ? (
+        <div
+          style={{
+            position: 'relative',
+            zIndex: 15,
+            flex: 1,
+            minHeight: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            pointerEvents: 'none',
+          }}
+        >
+          {/* Upper Open Visual Area: Slim Umi Bubble + Toast + QTE Bar + QTE Grade Popup */}
+          <div
+            style={{
+              padding: '2px 8px 0',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 6,
+              pointerEvents: 'none',
+            }}
+          >
+            {/* Slim Mobile Umi Bubble */}
+            <div
+              key={umiBubble.id}
+              className="summer-card anim-pop"
+              style={{
+                width: '100%',
+                padding: '5px 9px',
+                borderRadius: 12,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 7,
+                pointerEvents: 'auto',
+                borderColor:
+                  umiBubble.mood === 'panic'
+                    ? '#ef4444'
+                    : umiBubble.mood === 'warn'
+                      ? '#f59e0b'
+                      : 'rgba(236, 72, 153, 0.45)',
+              }}
+            >
+              <div
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: '50%',
+                  overflow: 'hidden',
+                  border: '2px solid #f472b6',
+                  background: '#fff5f7',
+                  flexShrink: 0,
+                }}
+              >
+                <img
+                  src={`${base}assets/images/${
+                    umiBubble.mood === 'panic'
+                      ? 'umi_c.png'
+                      : umiBubble.mood === 'warn'
+                        ? 'umi_b.png'
+                        : umiBubble.mood === 'excited'
+                          ? 'umi_splus.png'
+                          : 'umi_s.png'
+                  }`}
+                  alt="羽未"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 18%', transform: 'scale(1.6)' }}
+                />
+              </div>
+              <div style={{ fontSize: 11.5, lineHeight: 1.35, fontWeight: 700, color: '#3b2c22', minWidth: 0 }}>
+                <span style={{ color: '#db2777', fontWeight: 900, marginRight: 5 }}>羽未：</span>
+                {umiBubble.text}
+              </div>
+            </div>
+
+            {specialToast && !qte.active && (
+              <div
+                key={specialToast.id}
+                className="anim-pop"
+                style={{
+                  padding: '5px 14px',
+                  borderRadius: 999,
+                  background: specialToast.color,
+                  color: '#fff',
+                  fontWeight: 900,
+                  fontSize: 12.5,
+                  boxShadow: '0 6px 16px rgba(0,0,0,0.28)',
+                  border: '2px solid #fff',
+                }}
+              >
+                {specialToast.text}
+              </div>
+            )}
+
+            {/* Mobile Active QTE Bar (big thumb-friendly hit area!) */}
+            {qte.active && (
+              <div
+                className="summer-card anim-pop"
+                onClick={strikeQte}
+                style={{
+                  width: '100%',
+                  maxWidth: 360,
+                  padding: '12px 14px',
+                  cursor: 'pointer',
+                  pointerEvents: 'auto',
+                  borderColor: '#f97316',
+                  boxShadow: '0 14px 36px rgba(234, 88, 12, 0.42)',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <span style={{ fontWeight: 900, fontSize: 13.5, color: '#ea580c', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <Sparkles size={15} /> 翻炒时机 QTE！
+                  </span>
+                  <span style={{ fontSize: 12, fontWeight: 900, color: '#0369a1' }}>轻点此处击打！</span>
+                </div>
+                <div
+                  style={{
+                    position: 'relative',
+                    height: 32,
+                    borderRadius: 999,
+                    background: '#ef4444',
+                    overflow: 'hidden',
+                    border: '2.5px solid #2c241e',
+                  }}
+                >
+                  <div style={{ position: 'absolute', left: `${Math.max(0, (qte.center - qte.goodHalf) * 100)}%`, width: `${Math.min(100, qte.goodHalf * 200)}%`, top: 0, bottom: 0, background: '#38bdf8' }} />
+                  <div style={{ position: 'absolute', left: `${Math.max(0, (qte.center - qte.greatHalf) * 100)}%`, width: `${Math.min(100, qte.greatHalf * 200)}%`, top: 0, bottom: 0, background: '#22c55e' }} />
+                  <div style={{ position: 'absolute', left: `${Math.max(0, (qte.center - qte.excHalf) * 100)}%`, width: `${Math.min(100, qte.excHalf * 200)}%`, top: 0, bottom: 0, background: 'linear-gradient(180deg, #fef08a, #f59e0b)' }} />
+                  <div style={{ position: 'absolute', left: `calc(${qte.cursor * 100}% - 4.5px)`, top: -2, bottom: -2, width: 9, background: '#fff', border: '2px solid #1e1b4b', borderRadius: 4 }} />
+                </div>
+              </div>
+            )}
+
+            {qtePopup && (
+              <div
+                key={qtePopup.id}
+                className="anim-qte-float"
+                style={{
+                  position: 'relative',
+                  left: '50%',
+                  marginTop: 8,
+                  textAlign: 'center',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 28,
+                    fontWeight: 900,
+                    color:
+                      qtePopup.grade === 'Excellent'
+                        ? '#f59e0b'
+                        : qtePopup.grade === 'Great'
+                          ? '#22c55e'
+                          : qtePopup.grade === 'Good'
+                            ? '#38bdf8'
+                            : '#ef4444',
+                    textShadow: '0 2px 0 #fff, 0 -2px 0 #fff, 2px 0 0 #fff, -2px 0 0 #fff',
+                  }}
+                >
+                  {qtePopup.grade}!
+                </div>
+                {qtePopup.note && (
+                  <div style={{ padding: '2px 10px', borderRadius: 999, background: 'rgba(255,255,255,0.94)', fontSize: 11.5, fontWeight: 800 }}>
+                    {qtePopup.note}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* BOTTOM MOBILE THUMB-ZONE CONTROL DOCK */}
+          <div
+            style={{
+              pointerEvents: 'auto',
+              background: 'rgba(255, 251, 242, 0.96)',
+              borderTop: '2px solid rgba(234, 88, 12, 0.35)',
+              borderTopLeftRadius: 18,
+              borderTopRightRadius: 18,
+              padding: '8px 10px calc(10px + env(safe-area-inset-bottom))',
+              boxShadow: '0 -10px 26px rgba(0,0,0,0.22)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+            }}
+          >
+            {/* Row 1: Gas Stove Flame Bar + Big Thumb Flip Button */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div
+                style={{
+                  flex: 1,
+                  background: 'rgba(30, 36, 44, 0.94)',
+                  borderRadius: 12,
+                  padding: '5px 6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  minWidth: 0,
+                }}
+              >
+                <button
+                  onClick={handleToggleIgnite}
+                  style={{
+                    padding: '8px 8px',
+                    borderRadius: 9,
+                    background: heatLevel > 0 ? '#ef4444' : '#22c55e',
+                    color: '#fff',
+                    fontWeight: 900,
+                    fontSize: 11.5,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 2,
+                    flexShrink: 0,
+                  }}
+                >
+                  <Power size={13} />
+                  {heatLevel > 0 ? '关' : '点'}
+                </button>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 3, flex: 1 }}>
+                  {HEAT_LABELS.slice(1).map((h) => {
+                    const active = heatLevel === h.level;
+                    return (
+                      <button
+                        key={h.level}
+                        onClick={() => handleSetHeat(h.level)}
+                        style={{
+                          padding: '7px 2px',
+                          borderRadius: 8,
+                          background: active ? h.color : 'rgba(255,255,255,0.12)',
+                          color: '#fff',
+                          fontWeight: 800,
+                          fontSize: 11,
+                          border: active ? '1.5px solid #fff' : '1px solid rgba(255,255,255,0.16)',
+                        }}
+                      >
+                        {h.name.slice(0, 1)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <button
+                onClick={() => (qte.active ? strikeQte() : startTossQte())}
+                className="btn-primary"
+                style={{
+                  padding: '10px 14px',
+                  borderRadius: 12,
+                  fontSize: 13.5,
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                  background: qte.active
+                    ? 'linear-gradient(135deg, #f59e0b, #dc2626)'
+                    : undefined,
+                }}
+              >
+                {qte.active ? '⚡ 击打!' : '🥄 翻炒'}
+              </button>
+            </div>
+
+            {/* Row 2: Tab Switcher (备菜碟 / 调味架) + Serve Dish Button */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+              <div style={{ display: 'flex', gap: 5 }}>
+                <button
+                  onClick={() => setMobileDockTab('ingredients')}
+                  style={{
+                    padding: '6px 11px',
+                    borderRadius: 999,
+                    fontSize: 12,
+                    fontWeight: 900,
+                    background: mobileDockTab === 'ingredients' ? '#0284c7' : '#f1f5f9',
+                    color: mobileDockTab === 'ingredients' ? '#fff' : '#475569',
+                  }}
+                >
+                  🥣 备菜 ({allTrayIds.filter((id) => !panIngredients[id]).length})
+                </button>
+                <button
+                  onClick={() => setMobileDockTab('seasonings')}
+                  style={{
+                    padding: '6px 11px',
+                    borderRadius: 999,
+                    fontSize: 12,
+                    fontWeight: 900,
+                    background: mobileDockTab === 'seasonings' ? '#ea580c' : '#f1f5f9',
+                    color: mobileDockTab === 'seasonings' ? '#fff' : '#475569',
+                  }}
+                >
+                  🧂 调味架
+                </button>
+              </div>
+
+              <button
+                onClick={handleServeDish}
+                className="btn-primary"
+                style={{
+                  padding: '7px 13px',
+                  fontSize: 12.5,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  background:
+                    heatLevel === 0 && panIngredients['rice']
+                      ? 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)'
+                      : undefined,
+                }}
+              >
+                <Utensils size={14} /> 盛盘出锅
+              </button>
+            </div>
+
+            {/* Row 3: Active Tray Grid */}
+            {mobileDockTab === 'ingredients' ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                {allTrayIds.map((id) => {
+                  const cfg = INGREDIENT_MAP[id];
+                  const st = panIngredients[id];
+                  const added = Boolean(st);
+                  const doneMeta = st ? getDonenessLabel(st.doneness) : null;
+                  return (
+                    <button
+                      key={id}
+                      onClick={() => handleAddIngredient(id)}
+                      disabled={added}
+                      style={{
+                        padding: '6px 4px',
+                        borderRadius: 11,
+                        background: added ? '#f1f5f9' : '#fff',
+                        border: added ? '1.5px solid #94a3b8' : '2px solid #f59e0b',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: 2,
+                      }}
+                    >
+                      <IngredientIcon shape={cfg.iconShape} size={26} />
+                      <span style={{ fontSize: 11, fontWeight: 800, color: '#2c241e', lineHeight: 1.15 }}>
+                        {cfg.name}
+                      </span>
+                      {!added ? (
+                        <span style={{ fontSize: 9.5, fontWeight: 800, color: '#ea580c' }}>点击下锅</span>
+                      ) : helperMode && st && doneMeta ? (
+                        <span style={{ fontSize: 9.5, fontWeight: 900, color: doneMeta.color }}>{doneMeta.text}</span>
+                      ) : (
+                        <span style={{ fontSize: 9.5, fontWeight: 800, color: '#16a34a' }}>已入锅</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                {hoveredSeasoning && (
+                  <div style={{ fontSize: 11, color: '#78350f', background: '#fff7ed', padding: '4px 8px', borderRadius: 8, fontWeight: 700 }}>
+                    💡 {SEASONING_MAP[hoveredSeasoning].name}：{SEASONING_MAP[hoveredSeasoning].tip}
+                  </div>
+                )}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+                  {SEASONINGS.map((s) => {
+                    const cnt = seasoningCounts[s.id];
+                    return (
+                      <button
+                        key={s.id}
+                        onClick={() => {
+                          setHoveredSeasoning(s.id);
+                          handleAddSeasoning(s.id);
+                        }}
+                        style={{
+                          position: 'relative',
+                          padding: '6px 2px 5px',
+                          borderRadius: 10,
+                          background: cnt > 0 ? '#fff7ed' : '#fff',
+                          border: cnt > 0 ? '2px solid #f97316' : '1.5px solid rgba(180,145,106,0.38)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: 1,
+                        }}
+                      >
+                        {cnt > 0 && (
+                          <span
+                            style={{
+                              position: 'absolute',
+                              top: -5,
+                              right: -4,
+                              background: cnt > s.maxRecommended + 1 ? '#dc2626' : '#ea580c',
+                              color: '#fff',
+                              borderRadius: 999,
+                              padding: '1px 5px',
+                              fontSize: 9.5,
+                              fontWeight: 900,
+                            }}
+                          >
+                            ×{cnt}
+                          </span>
+                        )}
+                        <SeasoningBottleIcon id={s.id} size={30} />
+                        <span style={{ fontSize: 10.5, fontWeight: 800, color: '#2c241e' }}>{s.shortName}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+      /* DESKTOP & LANDSCAPE 3-COLUMN UI OVERLAY (pointerEvents: none on container so wok & spatula remain directly clickable!) */
       <div
         style={{
           position: 'relative',
           zIndex: 15,
           flex: 1,
           minHeight: 0,
-          padding: '6px 12px 12px',
+          padding: isCompactLandscape ? '3px 8px 6px' : '6px 12px 12px',
           display: 'grid',
-          gridTemplateColumns: 'clamp(196px, 22vw, 250px) minmax(0, 1fr) clamp(210px, 23vw, 270px)',
-          gap: 10,
+          gridTemplateColumns: isCompactLandscape
+            ? '168px minmax(0, 1fr) 184px'
+            : 'clamp(196px, 22vw, 250px) minmax(0, 1fr) clamp(210px, 23vw, 270px)',
+          gap: isCompactLandscape ? 6 : 10,
           alignItems: 'stretch',
           pointerEvents: 'none',
         }}
       >
         {/* LEFT COLUMN: UMI BUBBLE (top) + INGREDIENT BOWLS (bottom) */}
-        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 8, minHeight: 0, pointerEvents: 'auto' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 8, minHeight: 0, pointerEvents: 'none' }}>
           {/* UMI LIVE COMMENTARY BUBBLE */}
           <div
             key={umiBubble.id}
@@ -1401,6 +1985,7 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
               display: 'flex',
               alignItems: 'center',
               gap: 8,
+              pointerEvents: 'auto',
               borderColor:
                 umiBubble.mood === 'panic'
                   ? '#ef4444'
@@ -1447,6 +2032,7 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
               padding: '10px 9px',
               background: 'rgba(255, 249, 236, 0.92)',
               overflowY: 'auto',
+              pointerEvents: 'auto',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 7 }}>
@@ -1794,14 +2380,14 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
             justifyContent: 'flex-end',
             gap: 8,
             minHeight: 0,
-            pointerEvents: 'auto',
+            pointerEvents: 'none',
           }}
         >
           {/* Seasoning Tooltip cleanly contained inside right column */}
           {hoveredSeasoning && (
             <div
               className="summer-card anim-pop"
-              style={{ padding: '7px 10px', fontSize: 11, lineHeight: 1.4, color: '#3b2c22' }}
+              style={{ padding: '7px 10px', fontSize: 11, lineHeight: 1.4, color: '#3b2c22', pointerEvents: 'auto' }}
             >
               <strong style={{ color: '#ea580c' }}>{SEASONING_MAP[hoveredSeasoning].name}：</strong>
               {SEASONING_MAP[hoveredSeasoning].description}
@@ -1811,7 +2397,7 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
             </div>
           )}
 
-          <div className="summer-card" style={{ padding: '10px 9px', background: 'rgba(255, 252, 245, 0.92)' }}>
+          <div className="summer-card" style={{ padding: '10px 9px', background: 'rgba(255, 252, 245, 0.92)', pointerEvents: 'auto' }}>
             <div style={{ fontWeight: 900, fontSize: 12.5, color: '#78350f', marginBottom: 7 }}>
               🧂 调味架（点击定量添加）
             </div>
@@ -1867,22 +2453,24 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
             className="btn-primary"
             style={{
               width: '100%',
-              padding: '11px 12px',
-              fontSize: 14.5,
+              padding: isCompactLandscape ? '8px 10px' : '11px 12px',
+              fontSize: isCompactLandscape ? 12.5 : 14.5,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: 6,
+              pointerEvents: 'auto',
               background:
                 heatLevel === 0 && panIngredients['rice']
                   ? 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)'
                   : undefined,
             }}
           >
-            <Utensils size={18} /> 盛盘出锅，请羽未品尝！
+            <Utensils size={isCompactLandscape ? 15 : 18} /> 盛盘出锅，请羽未品尝！
           </button>
         </div>
       </div>
+      )}
     </div>
   );
 };
