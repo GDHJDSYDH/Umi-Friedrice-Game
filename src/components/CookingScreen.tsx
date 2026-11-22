@@ -85,6 +85,17 @@ const HEAT_LABELS: Array<{ level: HeatLevel; name: string; color: string; target
   { level: 5, name: '猛火', color: '#ef4444', targetTemp: 280 },
 ];
 
+// Normalized bowl-interior center inside each 1:1 wok sprite (excluding bottom-right handle)
+const WOK_BOWL_CENTERS: Record<WokId, { cx: number; cy: number; rx: number; ry: number }> = {
+  iron: { cx: 0.409, cy: 0.389, rx: 108, ry: 80 },
+  nonstick: { cx: 0.41, cy: 0.396, rx: 112, ry: 82 },
+  castiron: { cx: 0.435, cy: 0.424, rx: 108, ry: 80 },
+  copper: { cx: 0.41, cy: 0.36, rx: 110, ry: 82 },
+};
+
+const BG_NATURAL_W = 1440;
+const BG_NATURAL_H = 960;
+
 export const CookingScreen: React.FC<CookingScreenProps> = ({
   wokId,
   selectedIngredientIds,
@@ -95,6 +106,9 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
 }) => {
   const base = import.meta.env.BASE_URL || '/';
   const wok = WOK_MAP[wokId];
+  const bowl = WOK_BOWL_CENTERS[wokId];
+  const bowlCenterX = bowl.cx * 420;
+  const bowlCenterY = bowl.cy * 420;
   const allTrayIds = useMemo(
     () => [...BASE_INGREDIENTS.map((b) => b.id), ...selectedIngredientIds],
     [selectedIngredientIds]
@@ -103,6 +117,30 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
     () => computeTargetDuration(wokId, selectedIngredientIds),
     [wokId, selectedIngredientIds]
   );
+
+  // Compute exact object-fit:cover rectangle for kitchen_stove_bg.png (1440x960)
+  // so the flame, wok bowl, food canvas, and spatula stay 100% locked to the stove burner at every screen aspect ratio!
+  const [bgRect, setBgRect] = useState<{ w: number; h: number; left: number; top: number }>(() => {
+    const vw = typeof window !== 'undefined' ? window.innerWidth : 1280;
+    const vh = typeof window !== 'undefined' ? window.innerHeight : 720;
+    const scale = Math.max(vw / BG_NATURAL_W, vh / BG_NATURAL_H);
+    const w = BG_NATURAL_W * scale;
+    const h = BG_NATURAL_H * scale;
+    return { w, h, left: (vw - w) / 2, top: (vh - h) / 2 };
+  });
+
+  useEffect(() => {
+    const updateRect = () => {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const scale = Math.max(vw / BG_NATURAL_W, vh / BG_NATURAL_H);
+      const w = BG_NATURAL_W * scale;
+      const h = BG_NATURAL_H * scale;
+      setBgRect({ w, h, left: (vw - w) / 2, top: (vh - h) / 2 });
+    };
+    window.addEventListener('resize', updateRect);
+    return () => window.removeEventListener('resize', updateRect);
+  }, []);
 
   // React UI state (synced smoothly from simulation ref)
   const [helperMode, setHelperMode] = useState(true);
@@ -195,23 +233,26 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
     setSpecialToast({ id: Date.now() + Math.random(), text, color });
   }, []);
 
-  const spawnSplash = useCallback((color: string, count = 14) => {
-    for (let i = 0; i < count; i++) {
-      const ang = Math.random() * Math.PI * 2;
-      const spd = 25 + Math.random() * 75;
-      fxRef.current.push({
-        x: 210 + (Math.random() - 0.5) * 40,
-        y: 195 + (Math.random() - 0.5) * 30,
-        vx: Math.cos(ang) * spd,
-        vy: Math.sin(ang) * spd - 20,
-        life: 0,
-        maxLife: 0.45 + Math.random() * 0.25,
-        size: 3 + Math.random() * 4,
-        color,
-        kind: 'splash',
-      });
-    }
-  }, []);
+  const spawnSplash = useCallback(
+    (color: string, count = 14) => {
+      for (let i = 0; i < count; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const spd = 25 + Math.random() * 75;
+        fxRef.current.push({
+          x: bowlCenterX + (Math.random() - 0.5) * 44,
+          y: bowlCenterY + (Math.random() - 0.5) * 32,
+          vx: Math.cos(ang) * spd,
+          vy: Math.sin(ang) * spd - 20,
+          life: 0,
+          maxLife: 0.45 + Math.random() * 0.25,
+          size: 3 + Math.random() * 4,
+          color,
+          kind: 'splash',
+        });
+      }
+    },
+    [bowlCenterX, bowlCenterY]
+  );
 
   const idealTempRange = useMemo(
     () => computeIdealTempRange(wokId, Object.keys(panIngredients)),
@@ -315,19 +356,19 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
         pushBubble(`香喷喷的${cfg.name}下锅啦，记得炒透才最美味！`, 'happy');
       }
 
-      // Spawn physical grains/pieces in wok canvas!
+      // Spawn physical grains/pieces in wok bowl interior!
       if (id === 'rice') {
-        for (let i = 0; i < 115; i++) {
-          const r = Math.sqrt(Math.random()) * 110;
+        for (let i = 0; i < 125; i++) {
+          const r = Math.sqrt(Math.random());
           const th = Math.random() * Math.PI * 2;
           grainsRef.current.push({
-            x: 210 + Math.cos(th) * r,
-            y: 196 + Math.sin(th) * r * 0.72,
+            x: bowlCenterX + Math.cos(th) * r * (bowl.rx * 0.88),
+            y: bowlCenterY + Math.sin(th) * r * (bowl.ry * 0.85),
             vx: 0,
             vy: 0,
             z: 24 + Math.random() * 18,
             vz: 0,
-            size: 4.2 + Math.random() * 2.2,
+            size: 4.5 + Math.random() * 2.2,
             rot: Math.random() * Math.PI,
             kind: 'rice',
             color: '#fff9eb',
@@ -335,12 +376,12 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
           });
         }
       } else if (id === 'egg') {
-        for (let i = 0; i < 32; i++) {
-          const r = Math.sqrt(Math.random()) * 95;
+        for (let i = 0; i < 36; i++) {
+          const r = Math.sqrt(Math.random());
           const th = Math.random() * Math.PI * 2;
           grainsRef.current.push({
-            x: 210 + Math.cos(th) * r,
-            y: 196 + Math.sin(th) * r * 0.72,
+            x: bowlCenterX + Math.cos(th) * r * (bowl.rx * 0.82),
+            y: bowlCenterY + Math.sin(th) * r * (bowl.ry * 0.8),
             vx: 0,
             vy: 0,
             z: 20 + Math.random() * 14,
@@ -353,17 +394,17 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
           });
         }
       } else {
-        for (let i = 0; i < 18; i++) {
-          const r = Math.sqrt(Math.random()) * 102;
+        for (let i = 0; i < 20; i++) {
+          const r = Math.sqrt(Math.random());
           const th = Math.random() * Math.PI * 2;
           grainsRef.current.push({
-            x: 210 + Math.cos(th) * r,
-            y: 196 + Math.sin(th) * r * 0.72,
+            x: bowlCenterX + Math.cos(th) * r * (bowl.rx * 0.84),
+            y: bowlCenterY + Math.sin(th) * r * (bowl.ry * 0.82),
             vx: 0,
             vy: 0,
             z: 28 + Math.random() * 18,
             vz: 0,
-            size: 6.5 + Math.random() * 4,
+            size: 6.8 + Math.random() * 4,
             rot: Math.random() * Math.PI,
             kind: 'ingredient',
             color: cfg.color,
@@ -376,7 +417,7 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
       spawnSplash(cfg.color, 12);
       setPanIngredients({ ...s.panIngredients });
     },
-    [pushBubble, pushToast, spawnSplash, targetDur.min, wok.id]
+    [bowl.rx, bowl.ry, bowlCenterX, bowlCenterY, pushBubble, pushToast, spawnSplash, targetDur.min, wok.id]
   );
 
   // Add seasoning
@@ -503,7 +544,10 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
     let note = '';
 
     // Apply physical & scoring effects of the toss!
-    if (grade === 'Excellent') {
+    if (!s.ignited || s.panTemp < 95) {
+      note = '还没热锅呢，先点火吧！';
+      pushBubble('锅子还是凉凉的呢，先点击下方「点火」再开炒吧！', 'curious');
+    } else if (grade === 'Excellent') {
       if (hasFood && s.panTemp >= 150) {
         const heiGain = (12.5 + Math.min(5, s.combo * 1.1)) * wok.wokHeiMult * (1 - s.waterDampen * 0.45);
         s.wokHei = Math.min(100, s.wokHei + heiGain);
@@ -514,8 +558,8 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
       // Spawn golden wok-hei sparkles
       for (let i = 0; i < 16; i++) {
         fxRef.current.push({
-          x: 210 + (Math.random() - 0.5) * 140,
-          y: 185 + (Math.random() - 0.5) * 80,
+          x: bowlCenterX + (Math.random() - 0.5) * bowl.rx * 1.3,
+          y: bowlCenterY + (Math.random() - 0.5) * bowl.ry * 1.1,
           vx: (Math.random() - 0.5) * 65,
           vy: -45 - Math.random() * 80,
           life: 0,
@@ -525,7 +569,7 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
           kind: 'sparkle',
         });
       }
-      if (s.combo >= 3) {
+      if (s.combo >= 3 && hasFood && s.panTemp >= 130) {
         note = `锅气暴涨！${s.combo} 连击！`;
         pushBubble(`好厉害的颠勺节奏！已经 ${s.combo} 连击啦，锅气香到不行！`, 'excited');
       }
@@ -564,7 +608,7 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
     }
 
     setQtePopup({ id: Date.now(), grade, combo: s.combo, note });
-  }, [pushBubble, wok.wokHeiMult]);
+  }, [bowl.rx, bowl.ry, bowlCenterX, bowlCenterY, pushBubble, wok.wokHeiMult]);
 
   // Keyboard shortcuts: Space for Toss/QTE, 0-5 for heat
   useEffect(() => {
@@ -725,38 +769,38 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
           fctx.clearRect(0, 0, fCanvas.width, fCanvas.height);
           if (s.heatLevel > 0) {
             const cx = fCanvas.width / 2;
-            const cy = fCanvas.height / 2;
-            const t = now * 0.012;
-            const baseR = 54 + s.heatLevel * 12;
-            const flameCount = 18 + s.heatLevel * 4;
+            const cy = fCanvas.height / 2 + 12;
+            const t = now * 0.014;
+            const baseR = 92 + s.heatLevel * 18;
+            const flameCount = 24 + s.heatLevel * 5;
 
-            // Ambient blue glow
-            const glow = fctx.createRadialGradient(cx, cy, 10, cx, cy, baseR + 48);
-            glow.addColorStop(0, `rgba(56, 189, 248, ${0.22 + s.heatLevel * 0.08})`);
-            glow.addColorStop(0.6, `rgba(37, 99, 235, ${0.14 + s.heatLevel * 0.05})`);
+            // Vivid under-wok blue/orange heat halo that peeks clearly around the wok base
+            const glow = fctx.createRadialGradient(cx, cy, 45, cx, cy, baseR + 72);
+            glow.addColorStop(0, `rgba(56, 189, 248, ${0.38 + s.heatLevel * 0.1})`);
+            glow.addColorStop(0.55, s.heatLevel >= 4 ? `rgba(249, 115, 22, ${0.26 + s.heatLevel * 0.06})` : `rgba(37, 99, 235, ${0.24 + s.heatLevel * 0.07})`);
             glow.addColorStop(1, 'rgba(0,0,0,0)');
             fctx.fillStyle = glow;
             fctx.beginPath();
-            fctx.ellipse(cx, cy, baseR + 48, (baseR + 48) * 0.65, 0, 0, Math.PI * 2);
+            fctx.ellipse(cx, cy, baseR + 72, (baseR + 72) * 0.68, 0, 0, Math.PI * 2);
             fctx.fill();
 
-            // Individual gas jets around the burner ring
+            // Individual licking gas jets radiating visibly around the wok rim
             for (let i = 0; i < flameCount; i++) {
               const ang = (i / flameCount) * Math.PI * 2;
-              const flicker = 0.84 + Math.sin(t * 2.3 + i * 1.7) * 0.16;
-              const len = (14 + s.heatLevel * 7.5) * flicker;
+              const flicker = 0.8 + Math.sin(t * 2.5 + i * 1.9) * 0.2;
+              const len = (24 + s.heatLevel * 13) * flicker;
               const rx = cx + Math.cos(ang) * baseR;
-              const ry = cy + Math.sin(ang) * baseR * 0.62;
+              const ry = cy + Math.sin(ang) * baseR * 0.68;
               const tx = cx + Math.cos(ang) * (baseR + len);
-              const ty = cy + Math.sin(ang) * (baseR + len) * 0.62 - (4 + s.heatLevel * 2);
+              const ty = cy + Math.sin(ang) * (baseR + len) * 0.68 - (6 + s.heatLevel * 3.5);
 
               const grad = fctx.createLinearGradient(rx, ry, tx, ty);
-              grad.addColorStop(0, '#93c5fd');
-              grad.addColorStop(0.55, s.heatLevel >= 4 ? '#3b82f6' : '#2563eb');
-              grad.addColorStop(1, s.heatLevel === 5 ? '#fb923c' : '#60a5fa');
+              grad.addColorStop(0, '#bfdbfe');
+              grad.addColorStop(0.5, s.heatLevel >= 4 ? '#3b82f6' : '#2563eb');
+              grad.addColorStop(1, s.heatLevel >= 4 ? '#fb923c' : '#60a5fa');
 
               fctx.strokeStyle = grad;
-              fctx.lineWidth = 4 + s.heatLevel * 0.9;
+              fctx.lineWidth = 5 + s.heatLevel * 1.3;
               fctx.lineCap = 'round';
               fctx.beginPath();
               fctx.moveTo(rx, ry);
@@ -777,13 +821,13 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
           // Oil sheen in pan center
           if (s.seasoningCounts.oil > 0) {
             const oilAlpha = Math.min(0.45, 0.14 + s.seasoningCounts.oil * 0.08);
-            const oilGrad = ctx.createRadialGradient(210, 200, 12, 210, 200, 118);
+            const oilGrad = ctx.createRadialGradient(bowlCenterX, bowlCenterY, 10, bowlCenterX, bowlCenterY, bowl.rx);
             oilGrad.addColorStop(0, `rgba(255, 204, 77, ${oilAlpha})`);
             oilGrad.addColorStop(0.75, `rgba(245, 158, 11, ${oilAlpha * 0.45})`);
             oilGrad.addColorStop(1, 'rgba(245, 158, 11, 0)');
             ctx.fillStyle = oilGrad;
             ctx.beginPath();
-            ctx.ellipse(210, 200, 118, 86, 0, 0, Math.PI * 2);
+            ctx.ellipse(bowlCenterX, bowlCenterY, bowl.rx, bowl.ry, 0, 0, Math.PI * 2);
             ctx.fill();
           }
 
@@ -809,13 +853,13 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
                 g.vz = 0;
                 g.vx = 0;
                 g.vy = 0;
-                // Keep inside pan ellipse
-                const dx = (g.x - 210) / 112;
-                const dy = (g.y - 196) / 80;
+                // Keep strictly inside pan bowl interior ellipse!
+                const dx = (g.x - bowlCenterX) / (bowl.rx * 0.9);
+                const dy = (g.y - bowlCenterY) / (bowl.ry * 0.88);
                 const d = Math.hypot(dx, dy);
                 if (d > 1) {
-                  g.x = 210 + (dx / d) * 105;
-                  g.y = 196 + (dy / d) * 74;
+                  g.x = bowlCenterX + (dx / d) * (bowl.rx * 0.86);
+                  g.y = bowlCenterY + (dy / d) * (bowl.ry * 0.84);
                 }
               }
             } else if (s.panTemp > 130 && Math.random() < 0.03) {
@@ -861,8 +905,8 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
           if (hasAnyFood && s.panTemp > 115 && Math.random() < (s.panTemp - 95) / 280) {
             const smoky = s.burnLevel > 22 && Math.random() < s.burnLevel / 90;
             fxRef.current.push({
-              x: 210 + (Math.random() - 0.5) * 140,
-              y: 190 + (Math.random() - 0.5) * 60,
+              x: bowlCenterX + (Math.random() - 0.5) * bowl.rx * 1.25,
+              y: bowlCenterY + (Math.random() - 0.5) * bowl.ry * 0.75,
               vx: (Math.random() - 0.5) * 16,
               vy: -32 - Math.random() * 35,
               life: 0,
@@ -919,7 +963,7 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
 
     rafId = requestAnimationFrame(step);
     return () => cancelAnimationFrame(rafId);
-  }, [pushBubble, targetDur.min, wok.burnRateMult, wok.coolRate, wok.heatRate, wok.id, wok.maxTemp, wokId]);
+  }, [bowl.rx, bowl.ry, bowlCenterX, bowlCenterY, pushBubble, targetDur.min, wok.burnRateMult, wok.coolRate, wok.heatRate, wok.id, wok.maxTemp, wokId]);
 
   const handleServeDish = () => {
     const s = simRef.current;
@@ -972,7 +1016,8 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
   return (
     <div
       style={{
-        position: 'relative',
+        position: 'fixed',
+        inset: 0,
         width: '100vw',
         height: '100vh',
         overflow: 'hidden',
@@ -981,19 +1026,151 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
         flexDirection: 'column',
       }}
     >
-      {/* Background: Denoised first-person kitchen stove CG */}
-      <img
-        src={`${base}assets/images/kitchen_stove_bg.png`}
-        alt="鸟白岛厨房灶台"
+      {/* BACKGROUND-LOCKED KITCHEN STOVE STAGE
+          Locked 1:1 to kitchen_stove_bg.png (1440x960) so the flame, enlarged wok bowl,
+          food canvas, and wooden spatula always sit squarely on the real gas burner grate! */}
+      <div
         style={{
           position: 'absolute',
-          inset: 0,
-          width: '100%',
-          height: '100%',
-          objectFit: 'cover',
-          objectPosition: 'center center',
+          left: bgRect.left,
+          top: bgRect.top,
+          width: bgRect.w,
+          height: bgRect.h,
+          zIndex: 1,
+          pointerEvents: 'none',
         }}
-      />
+      >
+        <img
+          src={`${base}assets/images/kitchen_stove_bg.png`}
+          alt="鸟白岛厨房灶台"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            display: 'block',
+            pointerEvents: 'none',
+          }}
+        />
+
+        {/* Dynamic Gas Flame Canvas LOCKED directly under the enlarged wok (50%, 69.5%) */}
+        <canvas
+          ref={flameCanvasRef}
+          width={560}
+          height={420}
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: '69.5%',
+            width: '54%',
+            height: 'auto',
+            transform: 'translate(-50%, -50%)',
+            pointerEvents: 'none',
+            zIndex: 2,
+          }}
+        />
+
+        {/* Enlarged Wok + Food Canvas — bowl center locked directly over burner grate (50%, 66.2%) */}
+        <div
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: '66.2%',
+            width: '49%',
+            aspectRatio: '1 / 1',
+            transform: `translate(-${bowl.cx * 100}%, -${bowl.cy * 100}%)`,
+            zIndex: 4,
+            pointerEvents: 'none',
+          }}
+        >
+          <div
+            key={tossAnimKey}
+            className={tossAnimKey > 0 ? 'anim-wok-toss' : undefined}
+            style={{
+              position: 'relative',
+              width: '100%',
+              height: '100%',
+              pointerEvents: 'auto',
+              cursor: 'pointer',
+            }}
+            onClick={() => (qte.active ? strikeQte() : startTossQte())}
+            title="点击锅体/木铲或按 Space 键翻炒"
+          >
+            <img
+              src={`${base}${wok.image}`}
+              alt={wok.name}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain',
+                filter: 'drop-shadow(0 18px 24px rgba(0,0,0,0.42))',
+              }}
+            />
+            <canvas
+              ref={foodCanvasRef}
+              width={420}
+              height={420}
+              style={{
+                position: 'absolute',
+                inset: 0,
+                width: '100%',
+                height: '100%',
+                pointerEvents: 'none',
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Interactive Wooden Spatula docked naturally beside the upper-right wok rim */}
+        <button
+          key={`sp-${tossAnimKey}`}
+          className={tossAnimKey > 0 ? 'anim-spatula-sweep' : undefined}
+          onClick={() => (qte.active ? strikeQte() : startTossQte())}
+          style={{
+            position: 'absolute',
+            left: '73%',
+            top: '43%',
+            width: '13.5%',
+            aspectRatio: '1 / 1',
+            transform: 'translate(-50%, -50%)',
+            background: 'transparent',
+            padding: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            zIndex: 22,
+            pointerEvents: 'auto',
+          }}
+          title="使用木铲翻炒（快捷键 Space）"
+        >
+          <img
+            src={`${base}assets/images/spatula.png`}
+            alt="木铲翻炒"
+            style={{
+              width: '92%',
+              height: '92%',
+              objectFit: 'contain',
+              filter: 'drop-shadow(0 8px 14px rgba(0,0,0,0.36))',
+            }}
+          />
+          <span
+            style={{
+              marginTop: -12,
+              padding: '4px 11px',
+              borderRadius: 999,
+              background: 'linear-gradient(135deg, #f97316, #ea580c)',
+              color: '#fff',
+              fontSize: 12,
+              fontWeight: 900,
+              boxShadow: '0 4px 12px rgba(234,88,12,0.45)',
+              border: '1.5px solid #fff',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            🥄 翻炒 (Space)
+          </span>
+        </button>
+      </div>
 
       {/* TOP HUD BAR (Guaranteed single compact row, zero collision) */}
       <header
@@ -1198,7 +1375,7 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
         </div>
       </header>
 
-      {/* MAIN 3-COLUMN FLEX STAGE (Mathematically Zero-Overlap Across All Viewport Widths!) */}
+      {/* MAIN 3-COLUMN UI OVERLAY (pointerEvents: none on container so wok & spatula behind center column remain directly clickable!) */}
       <div
         style={{
           position: 'relative',
@@ -1207,13 +1384,14 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
           minHeight: 0,
           padding: '6px 12px 12px',
           display: 'grid',
-          gridTemplateColumns: 'clamp(196px, 23vw, 252px) minmax(0, 1fr) clamp(210px, 24vw, 272px)',
+          gridTemplateColumns: 'clamp(196px, 22vw, 250px) minmax(0, 1fr) clamp(210px, 23vw, 270px)',
           gap: 10,
           alignItems: 'stretch',
+          pointerEvents: 'none',
         }}
       >
         {/* LEFT COLUMN: UMI BUBBLE (top) + INGREDIENT BOWLS (bottom) */}
-        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 8, minHeight: 0 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 8, minHeight: 0, pointerEvents: 'auto' }}>
           {/* UMI LIVE COMMENTARY BUBBLE */}
           <div
             key={umiBubble.id}
@@ -1346,7 +1524,7 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
           </div>
         </div>
 
-        {/* CENTER COLUMN: TOAST / QTE + WOK STAGE + BOTTOM STOVE DIAL */}
+        {/* CENTER COLUMN: TOAST / QTE POPUP / ACTIVE QTE + BOTTOM STOVE DIAL (Wok & Spatula live in bgRect stage behind!) */}
         <div
           style={{
             position: 'relative',
@@ -1356,10 +1534,22 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
             justifyContent: 'space-between',
             minWidth: 0,
             minHeight: 0,
+            pointerEvents: 'none',
           }}
         >
-          {/* Upper center slot: Special Toast or Active QTE */}
-          <div style={{ minHeight: 42, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', zIndex: 40 }}>
+          {/* Upper center slot: Special Toast, QTE bar, and Floating Grade Popup */}
+          <div
+            style={{
+              position: 'relative',
+              width: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 8,
+              paddingTop: 4,
+              zIndex: 40,
+            }}
+          >
             {specialToast && !qte.active && (
               <div
                 key={specialToast.id}
@@ -1379,169 +1569,6 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
                 {specialToast.text}
               </div>
             )}
-          </div>
-
-          {/* Center Stove Interactive Stage: Flame + Wok + Food Canvas + Spatula */}
-          <div
-            style={{
-              position: 'relative',
-              width: 'min(400px, 100%)',
-              aspectRatio: '420 / 370',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 1,
-            }}
-          >
-            {/* Dynamic Gas Flame Canvas UNDER the wok */}
-            <canvas
-              ref={flameCanvasRef}
-              width={440}
-              height={340}
-              style={{
-                position: 'absolute',
-                left: '-2%',
-                top: '14%',
-                width: '104%',
-                height: '86%',
-                pointerEvents: 'none',
-              }}
-            />
-
-            {/* Chosen Wok Sprite + Food Canvas */}
-            <div
-              key={tossAnimKey}
-              className={tossAnimKey > 0 ? 'anim-wok-toss' : undefined}
-              style={{
-                position: 'relative',
-                width: '94%',
-                height: '94%',
-                cursor: 'pointer',
-              }}
-              onClick={() => (qte.active ? strikeQte() : startTossQte())}
-              title="点击锅体/木铲或按 Space 键翻炒"
-            >
-              <img
-                src={`${base}${wok.image}`}
-                alt={wok.name}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'contain',
-                  filter: 'drop-shadow(0 12px 18px rgba(0,0,0,0.38))',
-                }}
-              />
-              <canvas
-                ref={foodCanvasRef}
-                width={420}
-                height={400}
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  width: '100%',
-                  height: '100%',
-                  pointerEvents: 'none',
-                }}
-              />
-            </div>
-
-            {/* Interactive Wooden Spatula (docked cleanly at upper-right of the wok) */}
-            <button
-              key={`sp-${tossAnimKey}`}
-              className={tossAnimKey > 0 ? 'anim-spatula-sweep' : undefined}
-              onClick={() => (qte.active ? strikeQte() : startTossQte())}
-              style={{
-                position: 'absolute',
-                right: '-6%',
-                top: '2%',
-                width: '32%',
-                aspectRatio: '1 / 1',
-                background: 'transparent',
-                padding: 0,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                zIndex: 18,
-              }}
-              title="使用木铲翻炒（快捷键 Space）"
-            >
-              <img
-                src={`${base}assets/images/spatula.png`}
-                alt="木铲翻炒"
-                style={{
-                  width: '92%',
-                  height: '92%',
-                  objectFit: 'contain',
-                  filter: 'drop-shadow(0 6px 12px rgba(0,0,0,0.34))',
-                }}
-              />
-              <span
-                style={{
-                  marginTop: -12,
-                  padding: '3px 10px',
-                  borderRadius: 999,
-                  background: 'linear-gradient(135deg, #f97316, #ea580c)',
-                  color: '#fff',
-                  fontSize: 11.5,
-                  fontWeight: 900,
-                  boxShadow: '0 4px 12px rgba(234,88,12,0.45)',
-                  border: '1.5px solid #fff',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                🥄 翻炒 (Space)
-              </span>
-            </button>
-
-            {/* QTE Floating Result Popup */}
-            {qtePopup && (
-              <div
-                key={qtePopup.id}
-                className="anim-qte-float"
-                style={{
-                  position: 'absolute',
-                  left: '50%',
-                  top: '8%',
-                  zIndex: 35,
-                  textAlign: 'center',
-                  pointerEvents: 'none',
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 30,
-                    fontWeight: 900,
-                    letterSpacing: 1,
-                    color:
-                      qtePopup.grade === 'Excellent'
-                        ? '#f59e0b'
-                        : qtePopup.grade === 'Great'
-                          ? '#22c55e'
-                          : qtePopup.grade === 'Good'
-                            ? '#38bdf8'
-                            : '#ef4444',
-                    textShadow: '0 3px 0 #fff, 0 -2px 0 #fff, 2px 0 0 #fff, -2px 0 0 #fff, 0 6px 14px rgba(0,0,0,0.35)',
-                  }}
-                >
-                  {qtePopup.grade}!
-                </div>
-                {qtePopup.note && (
-                  <div
-                    style={{
-                      marginTop: 2,
-                      padding: '2px 10px',
-                      borderRadius: 999,
-                      background: 'rgba(255,255,255,0.92)',
-                      color: '#2c241e',
-                      fontSize: 11.5,
-                      fontWeight: 800,
-                    }}
-                  >
-                    {qtePopup.note}
-                  </div>
-                )}
-              </div>
-            )}
 
             {/* ACTIVE QTE PRECISION BAR OVERLAY */}
             {qte.active && (
@@ -1549,14 +1576,10 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
                 className="summer-card anim-pop"
                 onClick={strikeQte}
                 style={{
-                  position: 'absolute',
-                  left: '50%',
-                  top: '-6%',
-                  transform: 'translateX(-50%)',
-                  zIndex: 45,
-                  width: 'min(360px, 98%)',
+                  width: 'min(370px, 96%)',
                   padding: '12px 14px',
                   cursor: 'pointer',
+                  pointerEvents: 'auto',
                   borderColor: '#f97316',
                   boxShadow: '0 14px 36px rgba(234, 88, 12, 0.38)',
                 }}
@@ -1641,9 +1664,59 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
                 </div>
               </div>
             )}
+
+            {/* QTE Floating Result Popup */}
+            {qtePopup && (
+              <div
+                key={qtePopup.id}
+                className="anim-qte-float"
+                style={{
+                  position: 'absolute',
+                  left: '50%',
+                  top: 68,
+                  zIndex: 35,
+                  textAlign: 'center',
+                  pointerEvents: 'none',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 32,
+                    fontWeight: 900,
+                    letterSpacing: 1,
+                    color:
+                      qtePopup.grade === 'Excellent'
+                        ? '#f59e0b'
+                        : qtePopup.grade === 'Great'
+                          ? '#22c55e'
+                          : qtePopup.grade === 'Good'
+                            ? '#38bdf8'
+                            : '#ef4444',
+                    textShadow: '0 3px 0 #fff, 0 -2px 0 #fff, 2px 0 0 #fff, -2px 0 0 #fff, 0 6px 14px rgba(0,0,0,0.35)',
+                  }}
+                >
+                  {qtePopup.grade}!
+                </div>
+                {qtePopup.note && (
+                  <div
+                    style={{
+                      marginTop: 2,
+                      padding: '2px 10px',
+                      borderRadius: 999,
+                      background: 'rgba(255,255,255,0.92)',
+                      color: '#2c241e',
+                      fontSize: 12,
+                      fontWeight: 800,
+                    }}
+                  >
+                    {qtePopup.note}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* BOTTOM CENTER: GAS STOVE IGNITION & FLAME CONTROL PANEL (Fits cleanly inside center column!) */}
+          {/* BOTTOM CENTER: GAS STOVE IGNITION & FLAME CONTROL PANEL */}
           <div
             className="summer-card"
             style={{
@@ -1658,6 +1731,7 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
               color: '#fff',
               maxWidth: '100%',
               flexWrap: 'nowrap',
+              pointerEvents: 'auto',
             }}
           >
             <button
@@ -1720,6 +1794,7 @@ export const CookingScreen: React.FC<CookingScreenProps> = ({
             justifyContent: 'flex-end',
             gap: 8,
             minHeight: 0,
+            pointerEvents: 'auto',
           }}
         >
           {/* Seasoning Tooltip cleanly contained inside right column */}
